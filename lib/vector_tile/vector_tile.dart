@@ -1,23 +1,27 @@
+import 'dart:async';
+import 'dart:math';
+import 'dart:ui' as dartui;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/plugin_api.dart';
-import 'dart:async';
-import 'dart:ui' as dartui;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import '../tile/tile_state.dart' ;
+import 'package:flutter_map/flutter_map.dart';
+
 import '../geojson/classes.dart';
 import '../geojson/geojson_options.dart';
+import '../styles/styles.dart';
+import '../tile/tile_state.dart';
 import '../vector_tile/vector_tile.pb.dart' as vector_tile;
 import '../vector_tile/vector_tile.pbenum.dart';
-import '../styles/styles.dart';
-
 
 class VectorTileWidgetStream extends StatelessWidget {
   final double size = 256.0;
   final VectorTileIndex? index;
   final Map options;
 
-  const VectorTileWidgetStream({Key? key, size = 256.0, this.index, this.options = const {}}) : super(key: key);
+  const VectorTileWidgetStream(
+      {Key? key, size = 256.0, this.index, this.options = const {}})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +34,9 @@ class VectorTileWidget extends StatefulWidget {
   final VectorTileIndex? index;
   final Map options;
 
-  const VectorTileWidget({Key? key, size = 256.0, this.index, this.options = const {}}) : super(key: key);
+  const VectorTileWidget(
+      {Key? key, size = 256.0, this.index, this.options = const {}})
+      : super(key: key);
 
   @override
   State<StatefulWidget> createState() {
@@ -48,7 +54,7 @@ class VectorLayer {
   String layerName = "";
   List<ProcessedFeature> features = [];
 
-  VectorLayer(this.layerName,this.features);
+  VectorLayer(this.layerName, this.features);
 }
 
 class VectorTileStatus {
@@ -69,10 +75,13 @@ class ProcessedFeature {
   dartui.Path? path;
   List<Offset> polyOffsets = [];
 
-  ProcessedFeature({this.type = FeatureType.Point, this.tags = const {}, this.path, this.point, this.polyOffsets = const []});
-
+  ProcessedFeature(
+      {this.type = FeatureType.Point,
+      this.tags = const {},
+      this.path,
+      this.point,
+      this.polyOffsets = const []});
 }
-
 
 class _VectorTileWidgetState extends State<VectorTileWidget> {
   VectorTileIndex? index;
@@ -89,88 +98,79 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
 
   @override
   Widget build(BuildContext context) {
-
     var vectorTileIndex = widget.index;
     var width = MediaQuery.of(context).size.width;
     var height = MediaQuery.of(context).size.height;
-    var dimensions = Offset(width,height);
+    var dimensions = Offset(width, height);
 
-    var mapState = FlutterMapState.maybeOf(context)!;
+    var mapCamera = MapCamera.maybeOf(context)!;
+    var mapOptions = MapOptions.of(context);
 
-    var tileState = TileState(mapState, CustomPoint(widget.size, widget.size));
+    var tileState = TileState(mapCamera, Point(widget.size, widget.size));
 
     List<Widget> stack = [];
 
     var count = 0;
     tileState.loopOverTiles((i, j, pos, matrix) {
-      if(true || count < 1) {
+      Coords coords = Coords(i.toDouble(), j.toDouble());
+      coords.z = mapCamera.zoom.round();
+      var tileKey = "${coords.x}:${coords.y}:${coords.z}";
 
-        Coords coords = Coords(i.toDouble(), j.toDouble());
-        coords.z = mapState.zoom.round();
-        var tileKey = "${coords.x}:${coords.y}:${coords.z}";
-
-        if( !vectorTileIndex!.tile.containsKey(tileKey) ) {
-          vectorTileIndex.tile[tileKey] = VectorTileStatus();
-        }
-
-        var vectorTileStatus = vectorTileIndex.tile[tileKey];
-
-        if( vectorTileStatus!.status == VectorTileProcessingStatus.isLoaded ) {
-          var processedLayers = vectorTileStatus.layers;
-
-
-            stack.add(
-                Transform(transform: matrix,
-                    child: CustomPaint(
-                        size: const Size(256.0, 256.0),
-                        isComplex: true,
-                        //Tells flutter to cache the painter, although it probably won't!
-                        painter: FeatureVectorTilePainter(
-                            layers: processedLayers,
-                            options: GeoJSONOptions(),
-                            pos: pos,
-                          mapState: mapState
-                        )
-                    )
-                )
-            );
-
-        } else if( vectorTileStatus.status == VectorTileProcessingStatus.notStarted ) {
-          vectorTileStatus.status = VectorTileProcessingStatus.isLoading;
-
-          fetchData(coords, vectorTileIndex, mapState).then((_) {
-            vectorTileStatus.status = VectorTileProcessingStatus.isLoaded;
-          });
-        }
-        count++;
+      if (!vectorTileIndex!.tile.containsKey(tileKey)) {
+        vectorTileIndex.tile[tileKey] = VectorTileStatus();
       }
 
+      var vectorTileStatus = vectorTileIndex.tile[tileKey];
+
+      if (vectorTileStatus!.status == VectorTileProcessingStatus.isLoaded) {
+        var processedLayers = vectorTileStatus.layers;
+
+        stack.add(Transform(
+            transform: matrix,
+            child: CustomPaint(
+                size: const Size(256.0, 256.0),
+                isComplex: true,
+                //Tells flutter to cache the painter, although it probably won't!
+                painter: FeatureVectorTilePainter(
+                    layers: processedLayers,
+                    options: GeoJSONOptions(),
+                    pos: pos,
+                    camera: mapCamera))));
+      } else if (vectorTileStatus.status ==
+          VectorTileProcessingStatus.notStarted) {
+        vectorTileStatus.status = VectorTileProcessingStatus.isLoading;
+
+        fetchData(coords, vectorTileIndex, mapCamera, mapOptions).then((_) {
+          vectorTileStatus.status = VectorTileProcessingStatus.isLoaded;
+        });
+      }
+      count++;
     });
 
     return SizedBox(
-        width: width*1.25, /// calculate this properly depending on rotation and mobile orientation
-        height: height*1.25,
-        child: Stack(children: stack),
-    );
+      width: width * 1.25,
 
+      /// calculate this properly depending on rotation and mobile orientation
+      height: height * 1.25,
+      child: Stack(children: stack),
+    );
   }
 
-  Future<void> fetchData(coords, VectorTileIndex? vectorTileIndex, FlutterMapState mapState) async {
-
+  Future<void> fetchData(coords, VectorTileIndex? vectorTileIndex,
+      MapCamera camera, MapOptions mapOptions) async {
     String tileCoordsKey = tileCoordsToKey(coords);
     String url;
 
-    if(isValidTile(coords, mapState)) {
+    if (isValidTile(coords, camera, mapOptions)) {
       try {
-        url = NetworkNoRetryTileProvider().getTileUrl(coords,
-          TileLayer(
-            urlTemplate: options['urlTemplate'],
+        url = NetworkTileProvider().getTileUrl(
+            coords,
+            TileLayer(
+              urlTemplate: options['urlTemplate'],
               subdomains: options['subdomains'],
-          )
-        );
+            ));
 
-        DefaultCacheManager().getSingleFile(url).then( ( value ) async {
-
+        DefaultCacheManager().getSingleFile(url).then((value) async {
           var bytes = value.readAsBytesSync();
           var vt = vector_tile.Tile.fromBuffer(bytes);
 
@@ -178,18 +178,19 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
 
           int reps = 0;
 
-          for(var layer in vt.layers) {
+          for (var layer in vt.layers) {
             var layerString = layer.name.toString();
 
             for (vector_tile.Tile_Feature feature in layer.features) {
-
               var featureInfo = {};
               List<Offset> pointList = [];
               var command = '';
               var point;
               dartui.Path? path;
 
-              for (var tagIndex = 0; tagIndex < feature.tags.length; tagIndex += 2) {
+              for (var tagIndex = 0;
+                  tagIndex < feature.tags.length;
+                  tagIndex += 2) {
                 var valIndex = feature.tags[tagIndex + 1];
                 var layerObj = layer.values[valIndex];
                 var val;
@@ -215,16 +216,17 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
               var geometry = feature.geometry;
 
               var gIndex = 0;
-              int cx = 0; int cy = 0;
+              int cx = 0;
+              int cy = 0;
 
-              while(gIndex < geometry.length) {
-                var commandByte = geometry[ gIndex ];
+              while (gIndex < geometry.length) {
+                var commandByte = geometry[gIndex];
 
-                if(reps == 0) {
+                if (reps == 0) {
                   command = 'M';
                   var checkCom = commandByte & 0x7;
                   reps = commandByte >> 3;
-                  if(checkCom == 1) {
+                  if (checkCom == 1) {
                     command = 'M';
                   } else if (checkCom == 2) {
                     command = 'L';
@@ -233,7 +235,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
                     reps = 0;
 
                     path ??= dartui.Path();
-                    if(tileGeomType == Tile_GeomType.POLYGON) {
+                    if (tileGeomType == Tile_GeomType.POLYGON) {
                       path.addPolygon(polyPoints, true);
                       featureType = FeatureType.Polygon;
                     } else {
@@ -246,72 +248,68 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
                   }
                   gIndex++;
                 } else {
-                  cx += decodeZigZag(geometry[ gIndex ]);
-                  cy += decodeZigZag(geometry[ gIndex + 1]);
+                  cx += decodeZigZag(geometry[gIndex]);
+                  cy += decodeZigZag(geometry[gIndex + 1]);
 
                   double? ncx, ncy;
                   if (command == 'M' || (command == 'L')) {
-
                     path ??= dartui.Path();
-                    ncx = (cx.toDouble() / 16); // Change /16 to a tileRatio passed in..
+                    ncx = (cx.toDouble() /
+                        16); // Change /16 to a tileRatio passed in..
                     ncy = (cy.toDouble() / 16);
                   }
 
-                  if (command == 'C') { // CLOSE
-                    if(path != null) {
-                      print("IS THIS EVER USED ? IF SO< CLOSE MAY BE WRONG>>>>>");
-                      path.addPolygon(polyPoints, false); /// ////////////////// true/false if used
+                  if (command == 'C') {
+                    // CLOSE
+                    if (path != null) {
+                      print(
+                          "IS THIS EVER USED ? IF SO< CLOSE MAY BE WRONG>>>>>");
+                      path.addPolygon(polyPoints, false);
+
+                      /// ////////////////// true/false if used
                     }
                     polyPoints = [];
-
-                  } else if (command == 'M') { // MOVETO
+                  } else if (command == 'M') {
+                    // MOVETO
                     //if (type == 'POLYGON') {
                     path ??= dartui.Path();
                     if (tileGeomType == Tile_GeomType.POLYGON) {
-                      if(polyPoints.isNotEmpty) {
+                      if (polyPoints.isNotEmpty) {
                         path.addPolygon(polyPoints, true);
                       }
-                      polyOffsets.add(Offset(ncx!, ncy!))  ;
+                      polyOffsets.add(Offset(ncx!, ncy!));
                       polyPoints = [];
                       polyPoints.add(Offset(ncx, ncy));
 
                       featureType = FeatureType.Polygon;
-
                     } else if (tileGeomType == Tile_GeomType.LINESTRING) {
-
-                      if(polyPoints.isNotEmpty) {
+                      if (polyPoints.isNotEmpty) {
                         path.addPolygon(polyPoints, false);
                       }
-                      polyOffsets.add(Offset(ncx!, ncy!))  ;
+                      polyOffsets.add(Offset(ncx!, ncy!));
                       polyPoints = [];
                       polyPoints.add(Offset(ncx, ncy));
                       featureType = FeatureType.LineString;
-
                     } else if (tileGeomType == Tile_GeomType.POINT) {
-
                       point = Offset(ncx!, ncy!);
                       pointList.add(point);
 
-                      if(layer.name == "housenum_label") {
+                      if (layer.name == "housenum_label") {
                         featureInfo['name'] = featureInfo['house_num'];
                       }
 
                       featureType = FeatureType.Point;
                     }
-
-                  } else if (command == 'L') { // LINETO
+                  } else if (command == 'L') {
+                    // LINETO
 
                     if (tileGeomType == Tile_GeomType.POLYGON) {
                       polyOffsets.add(Offset(ncx!, ncy!));
                       polyPoints.add(Offset(ncx, ncy));
 
                       featureType = FeatureType.Polygon;
-
                     } else if (tileGeomType == Tile_GeomType.LINESTRING) {
-
-
                       polyOffsets.add(Offset(ncx!, ncy!));
-
 
                       polyPoints.add(Offset(ncx, ncy));
                       featureType = FeatureType.LineString;
@@ -325,31 +323,36 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
                 }
               }
 
-              if(polyPoints.isNotEmpty) {
+              if (polyPoints.isNotEmpty) {
                 path ??= dartui.Path();
 
-                if(tileGeomType == Tile_GeomType.POLYGON) {
+                if (tileGeomType == Tile_GeomType.POLYGON) {
                   path.addPolygon(polyPoints, true);
                 } else {
                   path.addPolygon(polyPoints, false);
                 }
               }
 
-              if(featureType == FeatureType.Polygon || featureType == FeatureType.LineString) {
-                tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, path: path, polyOffsets: polyOffsets));
+              if (featureType == FeatureType.Polygon ||
+                  featureType == FeatureType.LineString) {
+                tileFeatureList.add(ProcessedFeature(
+                    type: featureType,
+                    tags: featureInfo,
+                    path: path,
+                    polyOffsets: polyOffsets));
                 polyOffsets = [];
               } else {
-                tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, point: point));
+                tileFeatureList.add(ProcessedFeature(
+                    type: featureType, tags: featureInfo, point: point));
               }
 
               path = null;
             } // end feature
 
-            vectorTileIndex!.tile[tileCoordsKey]!.layers.add(VectorLayer(layerString, tileFeatureList));
+            vectorTileIndex!.tile[tileCoordsKey]!.layers
+                .add(VectorLayer(layerString, tileFeatureList));
             tileFeatureList = [];
-
           } // end layer
-
         });
       } catch (e) {
         print("ERROR LOADING URL $e $coords");
@@ -360,33 +363,37 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
 }
 
 class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
-
   final GeoJSONOptions options;
   final List<VectorLayer> layers;
-  FlutterMapState mapState;
+  MapCamera camera;
   PositionInfo pos;
   Paint? singleStyle;
 
-  FeatureVectorTilePainter({ required this.layers, required this.pos, required this.options,  required this.mapState });
-
+  FeatureVectorTilePainter(
+      {required this.layers,
+      required this.pos,
+      required this.options,
+      required this.camera});
 
   @override
   void paint(Canvas canvas, Size size) {
-    Rect myRect = const Offset(0,0) & const Size(257,257); // hmm some other rounding errer gone astray, shouldn't need this .5...
+    Rect myRect = const Offset(0, 0) &
+        const Size(257,
+            257); // hmm some other rounding errer gone astray, shouldn't need this .5...
     canvas.clipRect(myRect);
-    draw(layers, pos, canvas, mapState.zoom, options);
+    draw(layers, pos, canvas, camera.zoom, options);
   }
 
-
-  void draw(List<VectorLayer> layers, PositionInfo pos, Canvas canvas, zoom, GeoJSONOptions options) async {
+  void draw(List<VectorLayer> layers, PositionInfo pos, Canvas canvas, zoom,
+      GeoJSONOptions options) async {
     // Batch paths where possible...
     var superPath = dartui.Path();
 
     Map<String, int> layerOrderMap = VectorLayerStyles.defaultLayerOrder();
 
     layers.sort((a, b) {
-      return (layerOrderMap[ a.layerName ] ?? 15).compareTo(
-          layerOrderMap[ b.layerName ] ?? 15);
+      return (layerOrderMap[a.layerName] ?? 15)
+          .compareTo(layerOrderMap[b.layerName] ?? 15);
     });
 
     for (var layer in layers) {
@@ -395,7 +402,6 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
 
       var lastType;
       for (var count = 0; count < features.length; count++) {
-
         var feature = features[count];
         var type = feature.type;
         lastType ??= type;
@@ -403,7 +409,8 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
 
         Paint featurePaint = Styles.getPaint(feature, null, options);
 
-        if (type == FeatureType.Point) { // point
+        if (type == FeatureType.Point) {
+          // point
           canvas.save();
 
           canvas.translate(feature.point!.dx, feature.point!.dy);
@@ -416,12 +423,17 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
           canvas.restore();
         }
 
-        if (type == FeatureType.LineString ||
-            type == FeatureType.Polygon) { // line = 2, poly = 3
+        if (type == FeatureType.LineString || type == FeatureType.Polygon) {
+          // line = 2, poly = 3
 
-          var paint = VectorLayerStyles.getStyle(VectorLayerStyles.mapBoxClassColorStyles, tags,
-              layerName, type, zoom,
-              pos.scale, 2);
+          var paint = VectorLayerStyles.getStyle(
+              VectorLayerStyles.mapBoxClassColorStyles,
+              tags,
+              layerName,
+              type,
+              zoom,
+              pos.scale,
+              2);
 
           paint.strokeWidth = featurePaint.strokeWidth / pos.scale * 5;
           // polygon MUST have fill type whatever
@@ -433,13 +445,18 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
 
           paint.isAntiAlias = false;
 
-          if (options.featuresHaveSameStyle && type == lastType && lastType == FeatureType.Polygon) {
-
+          if (options.featuresHaveSameStyle &&
+              type == lastType &&
+              lastType == FeatureType.Polygon) {
             superPath.addPath(feature.path!, const Offset(0, 0));
           } else {
-            if( VectorLayerStyles.includeFeature(VectorLayerStyles.mapBoxClassColorStyles,
-                layerName, type, tags, zoom) ) {
-              if(feature.type == FeatureType.LineString) {
+            if (VectorLayerStyles.includeFeature(
+                VectorLayerStyles.mapBoxClassColorStyles,
+                layerName,
+                type,
+                tags,
+                zoom)) {
+              if (feature.type == FeatureType.LineString) {
                 canvas.drawPath(feature.path!, paint);
               } else {
                 canvas.drawPath(feature.path!, paint);
@@ -452,14 +469,18 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
           // We may get a mixed polgon followed by a point or line, so we want to
           // draw now to preserve order, but if all the same style may as well batch
 
-          if (feature.type == FeatureType.Polygon && (count < features.length - 1 &&
-              (features[count + 1].type != type)) ||
+          if (feature.type == FeatureType.Polygon &&
+                  (count < features.length - 1 &&
+                      (features[count + 1].type != type)) ||
               (count == features.length - 1)) {
-
-            if( VectorLayerStyles.includeFeature(VectorLayerStyles.mapBoxClassColorStyles, layerName, type,
-                tags, zoom) ) {
-            canvas.drawPath(superPath, paint);
-            superPath = dartui.Path();
+            if (VectorLayerStyles.includeFeature(
+                VectorLayerStyles.mapBoxClassColorStyles,
+                layerName,
+                type,
+                tags,
+                zoom)) {
+              canvas.drawPath(superPath, paint);
+              superPath = dartui.Path();
             }
           }
         }
@@ -468,14 +489,15 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
   }
 
   @override
-  bool shouldRepaint(FeatureVectorTilePainter oldDelegate) => oldDelegate.layers != layers  ||
-      oldDelegate.mapState.zoom != mapState.zoom ||
-      oldDelegate.mapState.center.latitude != mapState.center.latitude ;
-
+  bool shouldRepaint(FeatureVectorTilePainter oldDelegate) =>
+      oldDelegate.layers != layers ||
+      oldDelegate.camera.zoom != camera.zoom ||
+      oldDelegate.camera.center.latitude != camera.center.latitude;
 }
 
-int decodeZigZag( int byte ) { /// decodes from mapbox small int style
-  if(kIsWeb) {
+int decodeZigZag(int byte) {
+  /// decodes from mapbox small int style
+  if (kIsWeb) {
     var bigInt = BigInt.from(byte);
     return ((bigInt >> 1) ^ -(bigInt & BigInt.from(1))).toInt();
   } else {
@@ -487,15 +509,15 @@ String tileCoordsToKey(Coords coords) {
   return '${coords.x}:${coords.y}:${coords.z}';
 }
 
-bool isValidTile(Coords coords, FlutterMapState mapState) {
-  final crs = mapState.options.crs;
+bool isValidTile(Coords coords, MapCamera camera, MapOptions options) {
+  final crs = options.crs;
 
   if (!crs.infinite) {
     // don't load tile if it's out of bounds and not wrapped
-    var bounds = mapState.getPixelWorldBounds(mapState.zoom);
-    bounds = pxBoundsToTileRange(bounds!, const CustomPoint(256.0,256.0));
+    var bounds = camera.getPixelWorldBounds(camera.zoom);
+    bounds = pxBoundsToTileRange(bounds!, const Point(256.0, 256.0));
     if ((crs.wrapLng == null &&
-        (coords.x < bounds.min.x || coords.x > bounds.max.x)) ||
+            (coords.x < bounds.min.x || coords.x > bounds.max.x)) ||
         (crs.wrapLat == null &&
             (coords.y < bounds.min.y || coords.y > bounds.max.y))) {
       return false;
@@ -505,34 +527,37 @@ bool isValidTile(Coords coords, FlutterMapState mapState) {
   return true;
 }
 
-Bounds pxBoundsToTileRange(Bounds bounds, CustomPoint tileSize ) {
+Bounds pxBoundsToTileRange(Bounds bounds, Point tileSize) {
   return Bounds(
     bounds.min.unscaleBy(tileSize).floor(),
-    bounds.max.unscaleBy(tileSize).ceil() - const CustomPoint(1, 1),
+    bounds.max.unscaleBy(tileSize).ceil() - const Point(1, 1),
   );
 }
 
 class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
-
   final Stream<Null>? stream;
   final GeoJSONOptions options;
   final List features;
-  FlutterMapState mapState;
+  MapCamera camera;
   Matrix4 matrix;
   PositionInfo pos;
   Paint? singleStyle;
 
-  FeatureVectorPainter({ required this.mapState, required this.features, this.stream, required this.options, required this.matrix, required this.pos  });
-
+  FeatureVectorPainter(
+      {required this.camera,
+      required this.features,
+      this.stream,
+      required this.options,
+      required this.matrix,
+      required this.pos});
 
   @override
   void paint(Canvas canvas, Size size) {
     draw(features, pos, canvas, options);
   }
 
-
-  void draw(List<dynamic> features, PositionInfo pos, Canvas canvas, GeoJSONOptions options) async  {
-
+  void draw(List<dynamic> features, PositionInfo pos, Canvas canvas,
+      GeoJSONOptions options) async {
     // Batch paths where possible...
     var superPath = dartui.Path();
 
@@ -541,14 +566,15 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
     var myRect = const Offset(0, 0) & const Size(257.0, 257.0);
     canvas.clipRect(myRect);
 
-    for( var count = 0; count < features.length; count++ ) {
-
+    for (var count = 0; count < features.length; count++) {
       var feature = features[count];
-      FeatureType type = FeatureType.values[feature.type]; // convert geoson-vt 1-3 int to enum
+      FeatureType type =
+          FeatureType.values[feature.type]; // convert geoson-vt 1-3 int to enum
 
       Paint featurePaint = Styles.getPaint(feature, null, options);
 
-      if (type == FeatureType.Point) { // point
+      if (type == FeatureType.Point) {
+        // point
         canvas.save();
         canvas.translate(feature.geometry[0][0].toDouble(),
             feature.geometry[0][1].toDouble());
@@ -556,37 +582,36 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
         if (options.pointFunc != null) {
           options.pointFunc!(feature, canvas);
         } else {
-          canvas.drawCircle(const Offset(0,0), 5, featurePaint);
+          canvas.drawCircle(const Offset(0, 0), 5, featurePaint);
         }
         canvas.restore();
       }
 
-      if(type == FeatureType.LineString || type == FeatureType.Polygon) { // line = 2, poly = 3
+      if (type == FeatureType.LineString || type == FeatureType.Polygon) {
+        // line = 2, poly = 3
 
-        var path = dartui.Path()
-          ..fillType = dartui.PathFillType.evenOdd;
-        for( var ring in feature.geometry ) {
-
+        var path = dartui.Path()..fillType = dartui.PathFillType.evenOdd;
+        for (var ring in feature.geometry) {
           List<Offset> offsets = [];
           for (var c = 0; c < ring.length; c++) {
             offsets.add(Offset(ring[c][0].toDouble(), ring[c][1].toDouble()));
           }
-          path.addPolygon(offsets,false);
+          path.addPolygon(offsets, false);
         }
 
         featurePaint.strokeWidth = featurePaint.strokeWidth / pos.scale;
         // polygon MUST have fill type whatever
 
-
-        if(options.featuresHaveSameStyle) {
-          superPath.addPath(path, const Offset(0,0));
+        if (options.featuresHaveSameStyle) {
+          superPath.addPath(path, const Offset(0, 0));
         } else {
           canvas.drawPath(path, featurePaint);
         }
 
         // We may get a mixed polgon followed by a point or line, so we want to
         // draw now to preserve order, but if all the same style may as well batch
-        if((count < features.length - 1 && (features[count+1].type != type) ) ||
+        if ((count < features.length - 1 &&
+                (features[count + 1].type != type)) ||
             (count == features.length - 1)) {
           canvas.drawPath(superPath, featurePaint);
           superPath = dartui.Path();
@@ -599,8 +624,8 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
   }
 
   @override
-  bool shouldRepaint(FeatureVectorPainter oldDelegate) => oldDelegate.features != features ||
-      oldDelegate.mapState.zoom != mapState.zoom ||
-      oldDelegate.mapState.center.latitude != mapState.center.latitude ;
-
+  bool shouldRepaint(FeatureVectorPainter oldDelegate) =>
+      oldDelegate.features != features ||
+      oldDelegate.camera.zoom != camera.zoom ||
+      oldDelegate.camera.center.latitude != camera.center.latitude;
 }

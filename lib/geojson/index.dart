@@ -1,25 +1,24 @@
 library geojson_vt_dart;
 
+import 'classes.dart';
+import 'clip.dart';
 import 'convert.dart';
 import 'tile.dart';
-import 'clip.dart';
-import 'dart:convert';
 import 'transform.dart';
 import 'wrap.dart';
-import 'classes.dart';
-import 'dart:io';
 
 Map defaultOptions = {
-  'maxZoom': 14,            // max zoom to preserve detail on
-  'indexMaxZoom': 5,        // max zoom in the tile index
+  'maxZoom': 14, // max zoom to preserve detail on
+  'indexMaxZoom': 5, // max zoom in the tile index
   'indexMaxPoints': 100000, // max number of points per tile in the tile index
-  'tolerance': 3,           // simplification tolerance (higher means simpler)
-  'extent': 4096,           // tile extent
-  'buffer': 0,             // tile buffer on each side
-  'lineMetrics': false,     // whether to calculate line metrics
-  'promoteId': null,        // name of a feature property to be promoted to feature.id
-  'generateId': false,      // whether to generate feature ids. Cannot be used with promoteId
-  'debug': 2                // logging level (0, 1 or 2)
+  'tolerance': 3, // simplification tolerance (higher means simpler)
+  'extent': 4096, // tile extent
+  'buffer': 0, // tile buffer on each side
+  'lineMetrics': false, // whether to calculate line metrics
+  'promoteId': null, // name of a feature property to be promoted to feature.id
+  'generateId':
+      false, // whether to generate feature ids. Cannot be used with promoteId
+  'debug': 2 // logging level (0, 1 or 2)
 };
 
 class GeoJSONVT {
@@ -29,17 +28,18 @@ class GeoJSONVT {
   Map stats = {};
   int total = 0;
 
-  GeoJSONVT(data, this.options)  {
-
-    if(data.isEmpty) {
+  GeoJSONVT(data, this.options) {
+    if (data.isEmpty) {
       data = {};
       return;
     }
 
     var debug = options.debug;
 
-    if (options.maxZoom < 0 || options.maxZoom > 24) throw Exception('maxZoom should be in the 0-24 range');
-    if (options.promoteId != null && options.generateId) throw Exception('promoteId and generateId cannot be used together.');
+    if (options.maxZoom < 0 || options.maxZoom > 24)
+      throw Exception('maxZoom should be in the 0-24 range');
+    if (options.promoteId != null && options.generateId)
+      throw Exception('promoteId and generateId cannot be used together.');
 
     // projects and adds simplification info
     var features = convert(data, options);
@@ -49,7 +49,7 @@ class GeoJSONVT {
     tiles = {};
     List tileCoords = [];
 
-    if( debug > 0 ) {
+    if (debug > 0) {
       //stats = {};
       //total = 0;
     }
@@ -60,9 +60,10 @@ class GeoJSONVT {
     if (features.length > 0) splitTile(features, 0, 0, 0, null, null, null);
   }
 
-  @override toString() {
+  @override
+  toString() {
     var out = "Index: ";
-    tiles.forEach((tile,index) {
+    tiles.forEach((tile, index) {
       out += "Index: $index, Tile:" + tile.toString();
     });
     return out;
@@ -93,20 +94,19 @@ class GeoJSONVT {
       var tile = this.tiles[id];
 
       if (tile == null) {
-
-        if(features.isNotEmpty ) {
+        if (features.isNotEmpty) {
           //print("Creating tile from Index.dart $z $x $y $features ${features[0]!['geometry']}");
         } else {
           //print("features is empty ");
         }
         tile = this.tiles[id] = createTile(features, z, x, y, options);
 
-        if( options.debug > 1 ) {
-          print("tile z$z-$x-$y (features: ${tile.numFeatures}, points: ${tile.numPoints}, simplified: ${tile.numSimplified})");
+        if (options.debug > 1) {
+          print(
+              "tile z$z-$x-$y (features: ${tile.numFeatures}, points: ${tile.numPoints}, simplified: ${tile.numSimplified})");
         }
 
         this.tileCoords.add({z, x, y});
-
 
         if (debug > 0) {
           if (debug > 1) {
@@ -124,7 +124,8 @@ class GeoJSONVT {
       // if it's the first-pass tiling
       if (cz == null) {
         // stop tiling if we reached max zoom, or if the tile is too simple
-        if (z == options.indexMaxZoom || tile.numPoints <= options.indexMaxPoints) continue;
+        if (z == options.indexMaxZoom ||
+            tile.numPoints <= options.indexMaxPoints) continue;
         // if a drilldown to a specific tile
       } else if (z == options.maxZoom || z == cz) {
         // stop tiling if we reached base zoom or our target tile zoom
@@ -153,17 +154,19 @@ class GeoJSONVT {
       List? tr = [];
       List? br = [];
 
-      List? left  = clip(features, z2, x - k1, x + k3, 0, tile.minX, tile.maxX, options);
-      List? right = clip(features, z2, x + k2, x + k4, 0, tile.minX, tile.maxX, options);
+      List? left =
+          clip(features, z2, x - k1, x + k3, 0, tile.minX, tile.maxX, options);
+      List? right =
+          clip(features, z2, x + k2, x + k4, 0, tile.minX, tile.maxX, options);
       features = [];
 
-      if (left != null && left.isNotEmpty) {
+      if (left.isNotEmpty) {
         tl = clip(left, z2, y - k1, y + k3, 1, tile.minY, tile.maxY, options);
         bl = clip(left, z2, y + k2, y + k4, 1, tile.minY, tile.maxY, options);
         left = null;
       }
 
-      if (right != null && right.isNotEmpty) {
+      if (right.isNotEmpty) {
         tr = clip(right, z2, y - k1, y + k3, 1, tile.minY, tile.maxY, options);
         br = clip(right, z2, y + k2, y + k4, 1, tile.minY, tile.maxY, options);
         right = null;
@@ -171,14 +174,13 @@ class GeoJSONVT {
 
       if (debug > 1) print('finished clipping');
 
-      stack.addAll([tl, z + 1, x * 2,     y * 2]);
-      stack.addAll([bl, z + 1, x * 2,     y * 2 + 1]);
+      stack.addAll([tl, z + 1, x * 2, y * 2]);
+      stack.addAll([bl, z + 1, x * 2, y * 2 + 1]);
       stack.addAll([tr, z + 1, x * 2 + 1, y * 2]);
       stack.addAll([br, z + 1, x * 2 + 1, y * 2 + 1]);
     }
 
-    if( debug > 1 ) print("total ${this.total}, stats ${this.stats}");
-
+    if (debug > 1) print("total ${this.total}, stats ${this.stats}");
   }
 
   num toID(z, x, y) {
@@ -186,7 +188,6 @@ class GeoJSONVT {
   }
 
   SimpTile? getTile(z, x, y) {
-
     GeoJSONVTOptions options = this.options;
     final extent = options.extent;
     final debug = options.debug;
@@ -228,13 +229,13 @@ class GeoJSONVT {
 
     if (debug > 1) print('drilling down');
 
-    return (this.tiles[id] != null ? transformTile(this.tiles[id], extent) : null);
+    return (this.tiles[id] != null
+        ? transformTile(this.tiles[id], extent)
+        : null);
   }
-
 }
 
-void main () async {}
-
+void main() async {}
 
 Map extend(Map dest, Map src) {
   src.forEach((key, value) {
@@ -242,4 +243,3 @@ Map extend(Map dest, Map src) {
   });
   return dest;
 }
-

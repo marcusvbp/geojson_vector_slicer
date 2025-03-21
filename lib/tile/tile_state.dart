@@ -1,34 +1,40 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_map/plugin_api.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:hashcodes/hashcodes.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:tuple/tuple.dart';
-
 
 class Level {
   List children = [];
   double? zIndex;
-  CustomPoint? origin;
+  Point? origin;
   double? zoom;
-  CustomPoint? translatePoint;
+  Point? translatePoint;
   double? scale;
 }
 
 class PositionInfo {
-  CustomPoint point;
+  Point point;
   double width;
   double height;
   String coordsKey;
   double scale;
-  PositionInfo({required this.point, required this.width, required this.height, required this.coordsKey, required this.scale});
+  PositionInfo(
+      {required this.point,
+      required this.width,
+      required this.height,
+      required this.coordsKey,
+      required this.scale});
 
   @override
   String toString() {
     return 'point:$point width:$width height:$height coordsKey:$coordsKey scale:$scale';
   }
-
 }
 
-class Coords<T extends num> extends CustomPoint<T> {
+class Coords<T extends num> extends Point<T> {
   late T z;
 
   Coords(T x, T y) : super(x, y);
@@ -46,16 +52,19 @@ class Coords<T extends num> extends CustomPoint<T> {
 
   @override
   int get hashCode => hashValues(x.hashCode, y.hashCode, z.hashCode);
+
+  Point scaleBy(Point point) {
+    return Point(x * point.x, y * point.y);
+  }
 }
 
 class TileState {
-
   final Map<double, Level> _levels = {};
   //Level _level = Level();
   final mapState;
   double _tileZoom = 12;
   double maxZoom = 20;
-  CustomPoint<double> tileSize;
+  Point<double> tileSize;
 
   Tuple2<double, double>? _wrapX;
   Tuple2<double, double>? _wrapY;
@@ -70,25 +79,24 @@ class TileState {
     return crs.scale(zoom) / crs.scale(zoom);
   }
 
-  Bounds getTiledPixelBounds(FlutterMapState mapState) {
-    var scale = mapState.getZoomScale(mapState.zoom, _tileZoom);
-    var pixelCenter = mapState.project(mapState.center, _tileZoom);
-    var halfSize = mapState.size / (scale * 2);
+  Bounds getTiledPixelBounds(MapCamera camera) {
+    var scale = camera.getZoomScale(camera.zoom, _tileZoom);
+    var pixelCenter = camera.project(camera.center, _tileZoom);
+    var halfSize = camera.size / (scale * 2);
     return Bounds(pixelCenter - halfSize, pixelCenter + halfSize);
   }
 
-  Bounds pxBoundsToTileRange(Bounds bounds,[num tileSize = 256]) {
-    final tsPoint = CustomPoint(tileSize,tileSize);
+  Bounds pxBoundsToTileRange(Bounds bounds, [num tileSize = 256]) {
+    final tsPoint = Point(tileSize, tileSize);
 
     return Bounds(
       bounds.min.unscaleBy(tsPoint).floor(),
-      bounds.max.unscaleBy(tsPoint).ceil() - const CustomPoint(1, 1),
+      bounds.max.unscaleBy(tsPoint).ceil() - const Point(1, 1),
     );
   }
 
-  CustomPoint _getTilePos(Coords coords, tileSize) {
-
-    if(_levels[coords.z] == null) {
+  Point _getTilePos(Coords coords, tileSize) {
+    if (_levels[coords.z] == null) {
       _updateLevels();
     }
     var level = _levels[coords.z];
@@ -97,7 +105,7 @@ class TileState {
 
   Bounds getBounds() => getTiledPixelBounds(mapState);
 
-  Bounds getTileRange() => pxBoundsToTileRange(getBounds(),256);
+  Bounds getTileRange() => pxBoundsToTileRange(getBounds(), 256);
 
   void _setView(LatLng center, double zoom) {
     var tileZoom = zoom.roundToDouble();
@@ -117,10 +125,10 @@ class TileState {
     _wrapX = crs.wrapLng;
     if (_wrapX != null) {
       var first = (map.project(LatLng(0.0, crs.wrapLng!.item1), tileZoom).x /
-          tileSize.x)
+              tileSize.x)
           .floorToDouble();
       var second = (map.project(LatLng(0.0, crs.wrapLng!.item2), tileZoom).x /
-          tileSize.y)
+              tileSize.y)
           .ceilToDouble();
       _wrapX = Tuple2(first, second);
     }
@@ -128,16 +136,14 @@ class TileState {
     _wrapY = crs.wrapLat;
     if (_wrapY != null) {
       var first = (map.project(LatLng(crs.wrapLat!.item1, 0.0), tileZoom).y /
-          tileSize.x)
+              tileSize.x)
           .floorToDouble();
       var second = (map.project(LatLng(crs.wrapLat!.item2, 0.0), tileZoom).y /
-          tileSize.y)
+              tileSize.y)
           .ceilToDouble();
       _wrapY = Tuple2(first, second);
     }
   }
-
-
 
   void _setZoomTransforms(LatLng center, double zoom) {
     for (var i in _levels.keys) {
@@ -164,8 +170,9 @@ class TileState {
 
     for (var z in _levels.keys) {
       var levelZ = _levels[z];
-      if(levelZ != null) {
-        if (z == zoom) { // recheck here.....
+      if (levelZ != null) {
+        if (z == zoom) {
+          // recheck here.....
           var levelZi = _levels[z];
           if (levelZi != null) {
             levelZi.zIndex = maxZoom = (zoom - z).abs();
@@ -176,8 +183,7 @@ class TileState {
 
     var max = maxZoom + 2; // arbitrary, was originally for overzoom
 
-    for(var tempZoom in [for(var i=0.0; i<max; i+=1.0) i]) {
-
+    for (var tempZoom in [for (var i = 0.0; i < max; i += 1.0) i]) {
       var level = _levels[tempZoom];
       var map = mapState;
 
@@ -189,17 +195,15 @@ class TileState {
         level.zoom = tempZoom;
         _setZoomTransform(level, map.center, map.zoom);
       }
-
     }
 
     var levelZoom = _levels[zoom];
     //if(levelZoom != null)
     //  _level = levelZoom;
-
   }
 
-  PositionInfo getTilePositionInfo( double z, double x, double y ) {
-    var coords = Coords(x,y);
+  PositionInfo getTilePositionInfo(double z, double x, double y) {
+    var coords = Coords(x, y);
     coords.z = z.floorToDouble();
 
     var tilePos = _getTilePos(coords, tileSize);
@@ -211,14 +215,19 @@ class TileState {
     var height = tileSize.y * scale;
     var coordsKey = tileCoordsToKey(coords);
 
-    return PositionInfo(point: pos, width: width, height: height, coordsKey: coordsKey, scale: width / tileSize.x );
+    return PositionInfo(
+        point: pos,
+        width: width,
+        height: height,
+        coordsKey: coordsKey,
+        scale: width / tileSize.x);
   }
 
   String tileCoordsToKey(Coords coords) {
     return '${coords.x}:${coords.y}:${coords.z}';
   }
 
-  CustomPoint getTileSize() {
+  Point getTileSize() {
     return tileSize;
   }
 
@@ -226,22 +235,28 @@ class TileState {
     return _tileZoom;
   }
 
-  void loopOverTiles(  myFunction(num i,j, pos2, matrix3) ) {
+  void loopOverTiles(myFunction(num i, j, pos2, matrix3)) {
     Bounds _tileRange = getTileRange();
 
-    outerloop: for (var j = _tileRange.min.y; j <= _tileRange.max.y; j++) {
-      innerloop: for (var i = _tileRange.min.x; i <= _tileRange.max.x; i++) {
-
-        var pos = getTilePositionInfo(
-            getTileZoom(), i.toDouble(), j.toDouble());
+    outerloop:
+    for (var j = _tileRange.min.y; j <= _tileRange.max.y; j++) {
+      innerloop:
+      for (var i = _tileRange.min.x; i <= _tileRange.max.x; i++) {
+        var pos =
+            getTilePositionInfo(getTileZoom(), i.toDouble(), j.toDouble());
 
         var matrix = Matrix4.identity()
           ..translate(pos.point.x.toDouble(), pos.point.y.toDouble())
           ..scale(pos.scale);
 
-        myFunction( i, j, pos, matrix );
+        myFunction(i, j, pos, matrix);
       }
     }
+  }
+}
 
+extension on Point<num> {
+  Point multiplyBy(num n) {
+    return Point(x * n, y * n);
   }
 }

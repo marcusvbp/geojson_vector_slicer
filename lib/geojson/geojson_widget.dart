@@ -1,11 +1,13 @@
-import 'package:flutter/foundation.dart';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'index.dart';
-import 'geojson_options.dart';
-import 'geojson.dart';
-import 'package:flutter_map/plugin_api.dart';
+import 'package:flutter_map/flutter_map.dart';
+
 import '../tile/tile_state.dart' hide Coords;
 import '../vector_tile/vector_tile.dart';
+import 'geojson.dart';
+import 'geojson_options.dart';
+import 'index.dart';
 
 class GeoJSONWidget extends StatefulWidget {
   final GeoJSONVT? index;
@@ -16,39 +18,42 @@ class GeoJSONWidget extends StatefulWidget {
   final bool noSlice;
   final GeoJSONOptions options;
 
-  const GeoJSONWidget({Key? key, this.index, this.drawFunc, this.drawClusters = false, this.drawFeatures = true,
-    this.markers = false, this.noSlice = false, required this.options }) : super(key: key); // : super(key: key)
+  const GeoJSONWidget(
+      {Key? key,
+      this.index,
+      this.drawFunc,
+      this.drawClusters = false,
+      this.drawFeatures = true,
+      this.markers = false,
+      this.noSlice = false,
+      required this.options})
+      : super(key: key); // : super(key: key)
   @override
   _GeoJSONWidgetState createState() => _GeoJSONWidgetState();
 }
 
-
 class _GeoJSONWidgetState extends State<GeoJSONWidget> {
-
   @override
   Widget build(BuildContext context) {
+    final mapCamera = MapCamera.maybeOf(context)!;
 
-    final mapState = FlutterMapState.maybeOf(context)!;
+    Map<String, Widget> lastTileWidgets = {};
+    Map<String, Widget> currentTileWidgets = {};
 
-    Map<String,Widget> lastTileWidgets = {};
-    Map<String,Widget> currentTileWidgets = {};
-
-    CustomPoint size = const CustomPoint(256,256);
+    Point size = const Point(256, 256);
 
     List<Widget> clusters = [];
 
-    TileState tileState = TileState(mapState, const CustomPoint(256.0, 256.0));
+    TileState tileState = TileState(mapCamera, const Point(256.0, 256.0));
 
     List<Widget> allTileStack = [];
     List<Widget> allTileUpperStack = [];
     currentTileWidgets = {};
 
     tileState.loopOverTiles((i, j, pos, matrix) {
-
       List<Widget> thisTileStack = <Widget>[];
 
-      var tile = widget.index?.getTile(
-          tileState.getTileZoom().toInt(), i, j);
+      var tile = widget.index?.getTile(tileState.getTileZoom().toInt(), i, j);
 
       if (tile != null) {
         if (widget.drawClusters) {
@@ -56,7 +61,7 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
               tile,
               widget.index,
               matrix,
-              mapState,
+              mapCamera,
               size,
               widget.options.clusterFunc,
               widget.options.pointWidgetFunc);
@@ -71,36 +76,33 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
             var type = feature.type;
 
             if (type == 1 && widget.options.pointWidgetFunc != null) {
-              var tp = MatrixUtils.transformPoint(matrix, Offset(
-                  feature.geometry[0][0].toDouble(),
-                  feature.geometry[0][1].toDouble()));
+              var tp = MatrixUtils.transformPoint(
+                  matrix,
+                  Offset(feature.geometry[0][0].toDouble(),
+                      feature.geometry[0][1].toDouble()));
 
-              allTileUpperStack.add(
-                  Positioned(
-                      left: tp.dx,
-                      top: tp.dy,
-                      child: widget.options.pointWidgetFunc!(feature)
-                  )
-              );
+              allTileUpperStack.add(Positioned(
+                  left: tp.dx,
+                  top: tp.dy,
+                  child: widget.options.pointWidgetFunc!(feature)));
               startRange++;
             } else {
-              if (c == tile.features.length - 1 || (tile.features[c + 1] == 1 &&
-                  widget.options.pointWidgetFunc != null)) {
+              if (c == tile.features.length - 1 ||
+                  (tile.features[c + 1] == 1 &&
+                      widget.options.pointWidgetFunc != null)) {
                 var subList = tile.features.sublist(startRange, endRange + 1);
 
                 FeatureVectorPainter painterWidget = FeatureVectorPainter(
-                    mapState: mapState,
+                    camera: mapCamera,
                     features: subList,
                     options: widget.options,
                     matrix: matrix,
                     pos: pos);
-                thisTileStack.add(
-                    CustomPaint(
+                thisTileStack.add(CustomPaint(
                     size: const Size(256.0, 256.0),
                     isComplex: true,
                     //Tells flutter to cache the painter, although it probably won't!
-                    painter: painterWidget)
-                );
+                    painter: painterWidget));
               } else {
                 // deferring
               }
@@ -115,7 +117,7 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
       currentTileWidgets[tileKey] = Stack(children: thisTileStack);
 
       Widget newWidget;
-      if(lastTileWidgets.containsKey(tileKey)) {
+      if (lastTileWidgets.containsKey(tileKey)) {
         // this actually probably isn't optimising much, as the paint
         // will be called a lot anyway
         newWidget = lastTileWidgets[tileKey]!;
@@ -127,10 +129,11 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
 
       // ideally for optimisation we'd put the RepaintBoundary on the newWidget
       // but this will cause hairlines between tiles sometimes.
-      if(thisTileStack.isNotEmpty) {
-        allTileStack.add( Transform(child: newWidget, transform: matrix)
-          ///RepaintBoundary(child: Transform(child: newWidget, transform: matrix))
-        );
+      if (thisTileStack.isNotEmpty) {
+        allTileStack.add(Transform(child: newWidget, transform: matrix)
+
+            ///RepaintBoundary(child: Transform(child: newWidget, transform: matrix))
+            );
       }
     });
     lastTileWidgets = currentTileWidgets;

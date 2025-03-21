@@ -36,6 +36,8 @@ dependencies:
   flutter_cache_manager: any
   fixnum: ^1.0.0
   protobuf: ^2.1.0
+  tuple: ^2.0.2
+  hashcodes: ^2.0.0
 
 dev_dependencies:
   flutter_test:
