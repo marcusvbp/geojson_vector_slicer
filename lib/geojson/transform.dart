@@ -38,5 +38,8 @@ SimpTile transformTile(tile, extent) {
 }
 
 List transformPoint(x, y, extent, z2, tx, ty) {
-  return [(extent * (x * z2 - tx)).round(), (extent * (y * z2 - ty)).round()];
+  return [
+    (extent * (x * z2 - tx) as double).round(),
+    (extent * (y * z2 - ty) as double).round()
+  ];
 }
