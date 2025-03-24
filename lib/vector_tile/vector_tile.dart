@@ -516,7 +516,7 @@ bool isValidTile(Coords coords, MapCamera camera, MapOptions options) {
   if (!crs.infinite) {
     // don't load tile if it's out of bounds and not wrapped
     var bounds = camera.getPixelWorldBounds(camera.zoom);
-    bounds = pxBoundsToTileRange(bounds!, const Point(256.0, 256.0));
+    bounds = pxBoundsToTileRange(bounds!, const Point<double>(256.0, 256.0));
     if ((crs.wrapLng == null &&
             (coords.x < bounds.min.x || coords.x > bounds.max.x)) ||
         (crs.wrapLat == null &&
