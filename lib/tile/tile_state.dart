@@ -16,7 +16,7 @@ class Level {
 }
 
 class PositionInfo {
-  Point point;
+  Point<double> point;
   double width;
   double height;
   String coordsKey;
@@ -213,7 +213,8 @@ class TileState {
     var level = _levels[coords.z];
 
     var scale = level?.scale ?? 1;
-    var pos = (tilePos).multiplyBy(scale) + level!.translatePoint!;
+    var pos =
+        ((tilePos).multiplyBy(scale) + level!.translatePoint!).toDoublePoint();
     var width = (tileSize.x * scale);
     var height = tileSize.y * scale;
     var coordsKey = tileCoordsToKey(coords);
