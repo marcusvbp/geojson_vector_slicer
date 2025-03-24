@@ -49,7 +49,7 @@ class _MyHomePageState extends State<MyHomePage> {
   double doubleInRange(num start, num end) =>
       _random.nextDouble() * (end - start) + start;
 
-  late final MapCamera mapCamera;
+  late final MapCamera mapCamera = MapCamera.of(context);
   late GeoJSONVT geoJsonIndex = GeoJSONVT({}, GeoJSONVTOptions(buffer: 32));
   late GeoJSONVT? highlightedIndex =
       GeoJSONVT({}, GeoJSONVTOptions(buffer: 32));
@@ -61,10 +61,9 @@ class _MyHomePageState extends State<MyHomePage> {
   VectorTileIndex vectorTileIndex = VectorTileIndex();
 
   @override
-  void initState() async {
+  void initState() {
     //vectorTileIndex = GeoJSONVT({},GeoJSONVTOptions());
     super.initState();
-    mapCamera = MapCamera.of(context);
     CustomImages().loadPlane();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -94,7 +93,7 @@ class _MyHomePageState extends State<MyHomePage> {
       FlutterMap(
           options: MapOptions(
             //allowPanningOnScrollingParent: false,
-            initialCenter: LatLng(-2.219988165689301, 56.870017401753529),
+            initialCenter: const LatLng(-2.219988165689301, 56.870017401753529),
 
             ///center: LatLng(50.8344903, -0.186486 ),
             initialZoom: 2, //16.6,
@@ -117,7 +116,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       size: tileSize)) {
                     infoText =
                         "${feature.tags['NAME']}, ${feature.tags['COUNTY']} tapped";
-                    print("$infoText");
+                    print(infoText);
                     print("source IS ${feature.tags['source']}");
 
                     highlightedIndex = await GeoJSON().createIndex(null,
@@ -142,7 +141,7 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             TileLayer(
               urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-              subdomains: ['a', 'b', 'c'],
+              subdomains: const ['a', 'b', 'c'],
             ),
 
             /*
