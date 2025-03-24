@@ -61,7 +61,8 @@ class Coords<T extends num> extends Point<T> {
 class TileState {
   final Map<double, Level> _levels = {};
   //Level _level = Level();
-  final mapState;
+  final MapCamera mapCamera;
+  final MapOptions mapOptions;
   double _tileZoom = 12;
   double maxZoom = 20;
   Point<double> tileSize;
@@ -69,9 +70,9 @@ class TileState {
   Tuple2<double, double>? _wrapX;
   Tuple2<double, double>? _wrapY;
 
-  TileState(this.mapState, this.tileSize) {
+  TileState(this.mapCamera, this.mapOptions, this.tileSize) {
     _updateLevels();
-    _setView(mapState.center, mapState.zoom);
+    _setView(mapCamera.center, mapCamera.zoom);
   }
 
   double getZoomScale(double zoom, [crs]) {
@@ -103,7 +104,7 @@ class TileState {
     return coords.scaleBy(tileSize) - level!.origin!;
   }
 
-  Bounds getBounds() => getTiledPixelBounds(mapState);
+  Bounds getBounds() => getTiledPixelBounds(mapCamera);
 
   Bounds getTileRange() => pxBoundsToTileRange(getBounds(), 256);
 
@@ -117,30 +118,30 @@ class TileState {
   }
 
   void _resetGrid() {
-    var map = mapState;
-    var crs = map.options.crs;
+    var map = mapCamera;
+    var crs = mapOptions.crs;
     var tileSize = getTileSize();
     var tileZoom = _tileZoom;
 
-    _wrapX = crs.wrapLng;
+    _wrapX = Tuple2(crs.wrapLng!.$1, crs.wrapLng!.$2);
     if (_wrapX != null) {
-      var first = (map.project(LatLng(0.0, crs.wrapLng!.item1), tileZoom).x /
-              tileSize.x)
-          .floorToDouble();
-      var second = (map.project(LatLng(0.0, crs.wrapLng!.item2), tileZoom).x /
-              tileSize.y)
-          .ceilToDouble();
+      var first =
+          (map.project(LatLng(0.0, crs.wrapLng!.$1), tileZoom).x / tileSize.x)
+              .floorToDouble();
+      var second =
+          (map.project(LatLng(0.0, crs.wrapLng!.$2), tileZoom).x / tileSize.y)
+              .ceilToDouble();
       _wrapX = Tuple2(first, second);
     }
 
-    _wrapY = crs.wrapLat;
+    _wrapY = Tuple2(crs.wrapLat!.$1, crs.wrapLat!.$2);
     if (_wrapY != null) {
-      var first = (map.project(LatLng(crs.wrapLat!.item1, 0.0), tileZoom).y /
-              tileSize.x)
-          .floorToDouble();
-      var second = (map.project(LatLng(crs.wrapLat!.item2, 0.0), tileZoom).y /
-              tileSize.y)
-          .ceilToDouble();
+      var first =
+          (map.project(LatLng(crs.wrapLat!.$1, 0.0), tileZoom).y / tileSize.x)
+              .floorToDouble();
+      var second =
+          (map.project(LatLng(crs.wrapLat!.$2, 0.0), tileZoom).y / tileSize.y)
+              .ceilToDouble();
       _wrapY = Tuple2(first, second);
     }
   }
@@ -152,8 +153,8 @@ class TileState {
   }
 
   void _setZoomTransform(Level level, LatLng center, double zoom) {
-    var scale = mapState.getZoomScale(zoom, level.zoom);
-    var pixelOrigin = mapState.getNewPixelOrigin(center, zoom).round();
+    var scale = mapCamera.getZoomScale(zoom, level.zoom!);
+    var pixelOrigin = mapCamera.getNewPixelOrigin(center, zoom).round();
     if (level.origin == null) {
       return;
     }
@@ -185,7 +186,7 @@ class TileState {
 
     for (var tempZoom in [for (var i = 0.0; i < max; i += 1.0) i]) {
       var level = _levels[tempZoom];
-      var map = mapState;
+      var map = mapCamera;
 
       if (level == null) {
         level = _levels[tempZoom.toDouble()] = Level();

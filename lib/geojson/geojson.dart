@@ -77,14 +77,14 @@ class GeoJSON {
   }
 
   // experimental, not sure this still works. rework to use with canvas, not widgets ???
-  Widget getClusters(
-      MapCamera camera, index, stream, markerFunc, Point<double> size) {
+  Widget getClusters(MapCamera camera, MapOptions options, index, stream,
+      markerFunc, Point<double> size) {
     List<Positioned> markers = [];
 
     var clusterZoom = 2;
     var clusterFactor = pow(2, clusterZoom);
 
-    var tileState = TileState(camera, size);
+    var tileState = TileState(camera, options, size);
     var clusterPixels = size.x / clusterFactor;
 
     /// how much do we want to split the tilesize into, 32 = 8 chunks by 8
@@ -175,14 +175,14 @@ class GeoJSON {
     return Stack(children: markers);
   }
 
-  Widget getClustersOnTile(tile, index, matrix, MapCamera camera, size,
-      clusterFunc, markerWidgetFunc) {
+  Widget getClustersOnTile(tile, index, matrix, MapCamera camera,
+      MapOptions options, size, clusterFunc, markerWidgetFunc) {
     List<Positioned> markers = [];
 
     var clusterZoom = 1;
     var clusterFactor = pow(2, clusterZoom);
 
-    var tileState = TileState(camera, size);
+    var tileState = TileState(camera, options, size);
     var clusterPixels = size.x / clusterFactor;
 
     /// how much do we want to split the tilesize into, 32 = 8 chunks by 8

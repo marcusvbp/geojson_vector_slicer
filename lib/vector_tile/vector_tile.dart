@@ -106,7 +106,8 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
     var mapCamera = MapCamera.maybeOf(context)!;
     var mapOptions = MapOptions.of(context);
 
-    var tileState = TileState(mapCamera, Point(widget.size, widget.size));
+    var tileState =
+        TileState(mapCamera, mapOptions, Point(widget.size, widget.size));
 
     List<Widget> stack = [];
 

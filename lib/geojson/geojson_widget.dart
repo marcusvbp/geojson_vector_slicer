@@ -36,6 +36,7 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
   @override
   Widget build(BuildContext context) {
     final mapCamera = MapCamera.maybeOf(context)!;
+    final mapOptions = MapOptions.maybeOf(context)!;
 
     Map<String, Widget> lastTileWidgets = {};
     Map<String, Widget> currentTileWidgets = {};
@@ -44,7 +45,8 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
 
     List<Widget> clusters = [];
 
-    TileState tileState = TileState(mapCamera, const Point(256.0, 256.0));
+    TileState tileState =
+        TileState(mapCamera, mapOptions, const Point(256.0, 256.0));
 
     List<Widget> allTileStack = [];
     List<Widget> allTileUpperStack = [];
@@ -62,6 +64,7 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
               widget.index,
               matrix,
               mapCamera,
+              mapOptions,
               size,
               widget.options.clusterFunc,
               widget.options.pointWidgetFunc);
