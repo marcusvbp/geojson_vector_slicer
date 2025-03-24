@@ -114,7 +114,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
     var count = 0;
     tileState.loopOverTiles((i, j, pos, matrix) {
       Coords coords = Coords(i.toDouble(), j.toDouble());
-      coords.z = mapCamera.zoom.round();
+      coords.z = mapCamera.zoom;
       var tileKey = "${coords.x}:${coords.y}:${coords.z}";
 
       if (!vectorTileIndex!.tile.containsKey(tileKey)) {

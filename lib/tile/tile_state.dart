@@ -34,7 +34,7 @@ class PositionInfo {
   }
 }
 
-class Coords<T extends num> extends Point<T> {
+class Coords<T extends double> extends Point<T> {
   late T z;
 
   Coords(T x, T y) : super(x, y);
