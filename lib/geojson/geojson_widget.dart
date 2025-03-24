@@ -41,7 +41,7 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
     Map<String, Widget> lastTileWidgets = {};
     Map<String, Widget> currentTileWidgets = {};
 
-    Point size = const Point(256, 256);
+    Point size = const Point<double>(256, 256);
 
     List<Widget> clusters = [];
 
