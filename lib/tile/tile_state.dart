@@ -123,26 +123,28 @@ class TileState {
     var tileSize = getTileSize();
     var tileZoom = _tileZoom;
 
-    _wrapX = Tuple2(crs.wrapLng!.$1, crs.wrapLng!.$2);
-    if (_wrapX != null) {
-      var first =
-          (map.project(LatLng(0.0, crs.wrapLng!.$1), tileZoom).x / tileSize.x)
-              .floorToDouble();
-      var second =
-          (map.project(LatLng(0.0, crs.wrapLng!.$2), tileZoom).x / tileSize.y)
-              .ceilToDouble();
-      _wrapX = Tuple2(first, second);
-    }
+    if (crs.wrapLng != null && crs.wrapLat != null) {
+      _wrapX = Tuple2(crs.wrapLng!.$1, crs.wrapLng!.$2);
+      if (_wrapX != null) {
+        var first =
+            (map.project(LatLng(0.0, crs.wrapLng!.$1), tileZoom).x / tileSize.x)
+                .floorToDouble();
+        var second =
+            (map.project(LatLng(0.0, crs.wrapLng!.$2), tileZoom).x / tileSize.y)
+                .ceilToDouble();
+        _wrapX = Tuple2(first, second);
+      }
 
-    _wrapY = Tuple2(crs.wrapLat!.$1, crs.wrapLat!.$2);
-    if (_wrapY != null) {
-      var first =
-          (map.project(LatLng(crs.wrapLat!.$1, 0.0), tileZoom).y / tileSize.x)
-              .floorToDouble();
-      var second =
-          (map.project(LatLng(crs.wrapLat!.$2, 0.0), tileZoom).y / tileSize.y)
-              .ceilToDouble();
-      _wrapY = Tuple2(first, second);
+      _wrapY = Tuple2(crs.wrapLat!.$1, crs.wrapLat!.$2);
+      if (_wrapY != null) {
+        var first =
+            (map.project(LatLng(crs.wrapLat!.$1, 0.0), tileZoom).y / tileSize.x)
+                .floorToDouble();
+        var second =
+            (map.project(LatLng(crs.wrapLat!.$2, 0.0), tileZoom).y / tileSize.y)
+                .ceilToDouble();
+        _wrapY = Tuple2(first, second);
+      }
     }
   }
 
