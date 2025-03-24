@@ -258,8 +258,8 @@ class TileState {
   }
 }
 
-extension on Point<num> {
-  Point multiplyBy(num n) {
+extension on Point {
+  Point multiplyBy(double n) {
     return Point(x * n, y * n);
   }
 }
